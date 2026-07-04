@@ -34,7 +34,7 @@ export const AuthGuard: React.FC<GuardProps> = ({
     );
   }
 
-  if (!user) {
+  if (!user || (allowedRoles && !appUser)) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 

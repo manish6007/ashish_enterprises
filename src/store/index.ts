@@ -38,15 +38,34 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   recaptchaVerifier: null,
 
   initAuth: () => {
+    // Set a timeout to prevent hanging forever (e.g., if Firebase is blocked or getDoc hangs)
+    const timeoutId = setTimeout(() => {
+      if (get().loading) {
+        console.warn('Auth initialization timed out after 5s. Forcing loading to false.');
+        set({ loading: false });
+      }
+    }, 5000);
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const appUser = await usersService.getById(user.uid);
-        set({ user, appUser, loading: false });
-      } else {
+      try {
+        if (user) {
+          const appUser = await usersService.getById(user.uid);
+          set({ user, appUser, loading: false });
+        } else {
+          set({ user: null, appUser: null, loading: false });
+        }
+      } catch (error) {
+        console.error('Failed to fetch user in initAuth:', error);
         set({ user: null, appUser: null, loading: false });
+      } finally {
+        clearTimeout(timeoutId);
       }
     });
-    return unsubscribe;
+
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   },
 
   sendOTP: async (phone: string) => {
